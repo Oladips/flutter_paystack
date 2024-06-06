@@ -4,19 +4,21 @@ import 'package:flutter_paystack/src/common/utils.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  const MethodChannel channel =
-      MethodChannel('plugins.wilburt/flutter_paystack');
+  const MethodChannel channel = MethodChannel('plugins.wilburt/flutter_paystack');
 
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {
-    channel.setMockMethodCallHandler((MethodCall methodCall) async {
-      return '';
-    });
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+      channel,
+      (message) async {
+        return '';
+      },
+    );
   });
 
   tearDown(() {
-    channel.setMockMethodCallHandler(null);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel, null);
   });
 
   group("$Utils", () {

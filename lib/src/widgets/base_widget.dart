@@ -12,23 +12,75 @@ abstract class BaseState<T extends StatefulWidget> extends State<T> {
 
   @override
   Widget build(BuildContext context) {
-    return new WillPopScope(
-      onWillPop: _onWillPop,
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        if (isProcessing) return;
+        var returnValue = getPopReturnValue();
+
+        if (alwaysPop || (returnValue != null && (returnValue is CheckoutResponse && returnValue.status == true))) {
+          Navigator.of(context).pop(returnValue);
+          return;
+        }
+
+        var text = new Text(confirmationMessage);
+        var dialog = Platform.isIOS
+            ? new CupertinoAlertDialog(
+                content: text,
+                actions: <Widget>[
+                  new CupertinoDialogAction(
+                    child: const Text('Yes'),
+                    isDestructiveAction: true,
+                    onPressed: () {
+                      Navigator.pop(context, true); // Returning true to
+                      // _onWillPop will pop again.
+                    },
+                  ),
+                  new CupertinoDialogAction(
+                    child: const Text('No'),
+                    isDefaultAction: true,
+                    onPressed: () {
+                      Navigator.pop(context, false); // Pops the confirmation dialog but not the page.
+                    },
+                  ),
+                ],
+              )
+            : new AlertDialog(
+                content: text,
+                actions: <Widget>[
+                  new TextButton(
+                      child: const Text('NO'),
+                      onPressed: () {
+                        Navigator.of(context).pop(false); // Pops the confirmation dialog but not the page.
+                      }),
+                  new TextButton(
+                      child: const Text('YES'),
+                      onPressed: () {
+                        Navigator.of(context).pop(true); // Returning true to _onWillPop will pop again.
+                      })
+                ],
+              );
+
+        bool exit = await showDialog<bool>(
+              context: context,
+              builder: (BuildContext context) => dialog,
+            ) ??
+            false;
+
+        if (context.mounted && exit) {
+          Navigator.of(context).pop(returnValue);
+        }
+      },
       child: buildChild(context),
     );
   }
 
-  Widget buildChild(BuildContext context);
-
   Future<bool> _onWillPop() async {
-    if (isProcessing) {
-      return false;
-    }
+    if (isProcessing) return false;
 
     var returnValue = getPopReturnValue();
-    if (alwaysPop ||
-        (returnValue != null &&
-            (returnValue is CheckoutResponse && returnValue.status == true))) {
+    if (alwaysPop || (returnValue != null && (returnValue is CheckoutResponse && returnValue.status == true))) {
       Navigator.of(context).pop(returnValue);
       return false;
     }
@@ -51,8 +103,7 @@ abstract class BaseState<T extends StatefulWidget> extends State<T> {
                 child: const Text('No'),
                 isDefaultAction: true,
                 onPressed: () {
-                  Navigator.pop(context,
-                      false); // Pops the confirmation dialog but not the page.
+                  Navigator.pop(context, false); // Pops the confirmation dialog but not the page.
                 },
               ),
             ],
@@ -63,14 +114,12 @@ abstract class BaseState<T extends StatefulWidget> extends State<T> {
               new TextButton(
                   child: const Text('NO'),
                   onPressed: () {
-                    Navigator.of(context).pop(
-                        false); // Pops the confirmation dialog but not the page.
+                    Navigator.of(context).pop(false); // Pops the confirmation dialog but not the page.
                   }),
               new TextButton(
                   child: const Text('YES'),
                   onPressed: () {
-                    Navigator.of(context).pop(
-                        true); // Returning true to _onWillPop will pop again.
+                    Navigator.of(context).pop(true); // Returning true to _onWillPop will pop again.
                   })
             ],
           );
@@ -86,6 +135,8 @@ abstract class BaseState<T extends StatefulWidget> extends State<T> {
     }
     return false;
   }
+
+  Widget buildChild(BuildContext context);
 
   void onCancelPress() async {
     bool close = await _onWillPop();
